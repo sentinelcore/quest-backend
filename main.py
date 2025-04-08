@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from models import *
 from sqlalchemy.orm import sessionmaker
@@ -7,12 +7,16 @@ from datetime import datetime
 
 app = FastAPI()
 
+# CORS setup for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], allow_credentials=True,
-    allow_methods=["*"], allow_headers=["*"]
+    allow_origins=["*"],  # In production, set this to your frontend domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
+# Database setup
 engine = create_engine("sqlite:///./quests.db")
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
@@ -21,12 +25,11 @@ Session = sessionmaker(bind=engine)
 def read_root():
     return {"message": "DeCharge Spark is live"}
 
+# ✅ Create Quest - updated to support JSON directly
 @app.post("/quests")
 async def create_quest(request: Request):
     session = Session()
     data = await request.json()
-
-    print("Incoming Quest Data:", data)  # helpful logging
 
     q = Quest(
         name=data["name"],
@@ -43,56 +46,77 @@ async def create_quest(request: Request):
     session.commit()
     return {"message": "Quest created", "id": q.id}
 
+# ✅ Get All Quests
+@app.get("/quests")
+def list_quests():
+    session = Session()
+    return session.query(Quest).all()
 
-@app.post("/quests")
-async def create_quest(request: Request):
+# ✅ Create Task for a Quest
+@app.post("/quests/{quest_id}/tasks")
+async def create_task(quest_id: int, request: Request):
     session = Session()
     data = await request.json()
-    q = Quest(**data)
-    session.add(q)
+    task = Task(
+        quest_id=quest_id,
+        title=data["title"],
+        description=data["description"],
+        image_urls=data.get("image_urls", []),
+        video_urls=data.get("video_urls", []),
+        points=data.get("points", 0),
+        active=data.get("active", True),
+        issue_points=data.get("issue_points", True)
+    )
+    session.add(task)
     session.commit()
-    return {"message": "Quest created", "id": q.id}
+    return {"message": "Task created", "id": task.id}
 
-@app.post("/quests/{quest_id}/tasks")
-def create_task(quest_id: int, task: dict):
-    session = Session()
-    task['quest_id'] = quest_id
-    t = Task(**task)
-    session.add(t)
-    session.commit()
-    return {"message": "Task created", "id": t.id}
-
+# ✅ Get All Tasks for a Quest
 @app.get("/quests/{quest_id}/tasks")
 def get_tasks_for_quest(quest_id: int):
     session = Session()
     return session.query(Task).filter(Task.quest_id == quest_id).all()
 
+# ✅ Submit a Task (as user)
 @app.post("/tasks/{task_id}/submit")
-def submit_task(task_id: int, submission: dict):
+async def submit_task(task_id: int, request: Request):
     session = Session()
+    data = await request.json()
+
     task = session.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    s = Submission(**submission, task_id=task_id, quest_id=task.quest_id)
-    if task.issue_points:
-        s.points_allocated = task.points
-        s.status = "accepted"
+
+    s = Submission(
+        task_id=task_id,
+        quest_id=task.quest_id,
+        user_wallet=data.get("user_wallet"),
+        submission_data=data.get("submission_data", {}),
+        submitted_at=datetime.utcnow(),
+        status="accepted" if task.issue_points else "pending",
+        points_allocated=task.points if task.issue_points else 0,
+    )
     session.add(s)
     session.commit()
-    return {"message": "Submission received"}
+    return {"message": "Submission received", "id": s.id}
 
+# ✅ Get All Submissions for a Quest
 @app.get("/quests/{quest_id}/submissions")
 def get_submissions(quest_id: int):
     session = Session()
     return session.query(Submission).filter(Submission.quest_id == quest_id).all()
 
+# ✅ Update Submission Status (accept/reject)
 @app.post("/submissions/{submission_id}/status")
-def update_submission_status(submission_id: int, status: str, points: int = 0):
+async def update_submission_status(submission_id: int, request: Request):
     session = Session()
+    data = await request.json()
+
     s = session.query(Submission).filter(Submission.id == submission_id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Submission not found")
-    s.status = status
-    s.points_allocated = points
+
+    s.status = data["status"]
+    s.points_allocated = data.get("points", 0)
     session.commit()
-    return {"message": f"Submission marked as {status}"}
+    return {"message": f"Submission marked as {s.status}"}
