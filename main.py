@@ -5,6 +5,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime
+
 
 
 app = FastAPI()
@@ -51,8 +53,8 @@ async def create_quest(request: Request):
         q = Quest(
             name=data.get("name", ""),
             description=data.get("description", ""),
-            start_time=data.get("start_time"),
-            end_time=data.get("end_time"),
+            start_time=datetime.fromisoformat(data.get("start_time").replace("Z", "")),
+            end_time=datetime.fromisoformat(data.get("end_time").replace("Z", "")),
             is_active=data.get("is_active", True),
             submissions_limit=data.get("submissions_limit", "1_per_user"),
             points_per_submission=data.get("points_per_submission", 0),
