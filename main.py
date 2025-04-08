@@ -56,10 +56,39 @@ async def create_quest(request: Request):
         return {"error": str(e)}, 500
 
 # ✅ Get All Quests
-@app.get("/quests")
-def list_quests():
-    session = Session()
-    return session.query(Quest).all()
+@app.post("/quests")
+async def create_quest(request: Request):
+    try:
+        session = Session()
+        data = await request.json()
+
+        q = Quest(
+            name=data.get("name"),
+            description=data.get("description"),
+            start_time=data.get("start_time"),
+            end_time=data.get("end_time"),
+            is_active=data.get("is_active", True),
+            submissions_limit=data.get("submissions_limit", "1_per_user"),
+            points_per_submission=data.get("points_per_submission", 10),
+            points_mode=data.get("points_mode", "auto"),
+            config=data.get("config", {}),
+        )
+
+        session.add(q)
+        session.commit()
+        session.refresh(q)  # ✅ Ensures we get the ID back
+
+        return {
+            "id": q.id,
+            "name": q.name,
+            "description": q.description,
+        }
+
+    except Exception as e:
+        print("❌ Error creating quest:", str(e))
+        return {"error": str(e)}
+
+
 
 # ✅ Create Task for a Quest
 @app.post("/quests/{quest_id}/tasks")
