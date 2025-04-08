@@ -4,13 +4,15 @@ from models import *
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from datetime import datetime
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI()
 
 # CORS setup for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, set this to your frontend domain
+    allow_origins=["http://localhost:5173"],  # or "*" temporarily
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,23 +30,30 @@ def read_root():
 # ✅ Create Quest - updated to support JSON directly
 @app.post("/quests")
 async def create_quest(request: Request):
-    session = Session()
-    data = await request.json()
+    try:
+        session = Session()
+        data = await request.json()
 
-    q = Quest(
-        name=data["name"],
-        description=data["description"],
-        start_time=data.get("start_time"),
-        end_time=data.get("end_time"),
-        is_active=data.get("is_active", True),
-        submissions_limit=data.get("submissions_limit"),
-        points_per_submission=data.get("points_per_submission", 0),
-        points_mode=data.get("points_mode", "manual"),
-        config=data.get("config", {}),
-    )
-    session.add(q)
-    session.commit()
-    return {"message": "Quest created", "id": q.id}
+        q = Quest(
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            start_time=data.get("start_time", datetime.utcnow().isoformat()),
+            end_time=data.get("end_time", datetime.utcnow().isoformat()),
+            is_active=data.get("is_active", True),
+            submissions_limit=data.get("submissions_limit", "1_per_user"),
+            points_per_submission=data.get("points_per_submission", 0),
+            points_mode=data.get("points_mode", "auto"),
+            config=data.get("config", {}),
+        )
+
+        session.add(q)
+        session.commit()
+
+        return {"message": "Quest created", "id": q.id}
+
+    except Exception as e:
+        print("Quest creation error:", str(e))
+        return {"error": str(e)}, 500
 
 # ✅ Get All Quests
 @app.get("/quests")
