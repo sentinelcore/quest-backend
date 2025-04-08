@@ -86,6 +86,25 @@ def get_tasks_for_quest(quest_id: int):
     session = Session()
     return session.query(Task).filter(Task.quest_id == quest_id).all()
 
+@app.post("/quests/{quest_id}/tasks")
+async def create_task(quest_id: int, request: Request):
+    session = Session()
+    data = await request.json()
+    task = Task(
+        quest_id=quest_id,
+        title=data["title"],
+        description=data["description"],
+        image_urls=data.get("image_urls", []),
+        video_urls=data.get("video_urls", []),
+        points=data.get("points", 0),
+        active=data.get("active", True),
+        issue_points=data.get("issue_points", True)
+    )
+    session.add(task)
+    session.commit()
+    return {"message": "Task created", "id": task.id}
+
+
 # ✅ Submit a Task (as user)
 @app.post("/tasks/{task_id}/submit")
 async def submit_task(task_id: int, request: Request):
