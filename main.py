@@ -22,17 +22,36 @@ def read_root():
     return {"message": "DeCharge Spark is live"}
 
 @app.post("/quests")
-def create_quest(quest: dict):
+async def create_quest(request: Request):
     session = Session()
-    q = Quest(**quest)
+    data = await request.json()
+
+    print("Incoming Quest Data:", data)  # helpful logging
+
+    q = Quest(
+        name=data["name"],
+        description=data["description"],
+        start_time=data.get("start_time"),
+        end_time=data.get("end_time"),
+        is_active=data.get("is_active", True),
+        submissions_limit=data.get("submissions_limit"),
+        points_per_submission=data.get("points_per_submission", 0),
+        points_mode=data.get("points_mode", "manual"),
+        config=data.get("config", {}),
+    )
     session.add(q)
     session.commit()
     return {"message": "Quest created", "id": q.id}
 
-@app.get("/quests")
-def list_quests():
+
+@app.post("/quests")
+async def create_quest(request: Request):
     session = Session()
-    return session.query(Quest).all()
+    data = await request.json()
+    q = Quest(**data)
+    session.add(q)
+    session.commit()
+    return {"message": "Quest created", "id": q.id}
 
 @app.post("/quests/{quest_id}/tasks")
 def create_task(quest_id: int, task: dict):
