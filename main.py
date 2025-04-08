@@ -28,65 +28,46 @@ def read_root():
     return {"message": "DeCharge Spark is live"}
 
 # ✅ Create Quest - updated to support JSON directly
-@app.post("/quests")
-async def create_quest(request: Request):
-    try:
-        session = Session()
-        data = await request.json()
+from fastapi.responses import JSONResponse
 
-        q = Quest(
-            name=data.get("name", ""),
-            description=data.get("description", ""),
-            start_time=data.get("start_time", datetime.utcnow().isoformat()),
-            end_time=data.get("end_time", datetime.utcnow().isoformat()),
-            is_active=data.get("is_active", True),
-            submissions_limit=data.get("submissions_limit", "1_per_user"),
-            points_per_submission=data.get("points_per_submission", 0),
-            points_mode=data.get("points_mode", "auto"),
-            config=data.get("config", {}),
-        )
-
-        session.add(q)
-        session.commit()
-
-        return {"message": "Quest created", "id": q.id}
-
-    except Exception as e:
-        print("Quest creation error:", str(e))
-        return {"error": str(e)}, 500
-
-# ✅ Get All Quests
-@app.post("/quests")
-async def create_quest(request: Request):
-    try:
-        session = Session()
-        data = await request.json()
-
-        q = Quest(
-            name=data.get("name"),
-            description=data.get("description"),
-            start_time=data.get("start_time"),
-            end_time=data.get("end_time"),
-            is_active=data.get("is_active", True),
-            submissions_limit=data.get("submissions_limit", "1_per_user"),
-            points_per_submission=data.get("points_per_submission", 10),
-            points_mode=data.get("points_mode", "auto"),
-            config=data.get("config", {}),
-        )
-
-        session.add(q)
-        session.commit()
-        session.refresh(q)  # ✅ Ensures we get the ID back
-
-        return {
+@app.get("/quests")
+def get_quests():
+    session = Session()
+    quests = session.query(Quest).all()
+    return [
+        {
             "id": q.id,
             "name": q.name,
-            "description": q.description,
-        }
+            "description": q.description
+        } for q in quests
+    ]
 
-    except Exception as e:
-        print("❌ Error creating quest:", str(e))
-        return {"error": str(e)}
+@app.post("/quests")
+async def create_quest(request: Request):
+    session = Session()
+    data = await request.json()
+
+    q = Quest(
+        name=data.get("name"),
+        description=data.get("description"),
+        start_time=data.get("start_time"),
+        end_time=data.get("end_time"),
+        is_active=data.get("is_active", True),
+        submissions_limit=data.get("submissions_limit", "1_per_user"),
+        points_per_submission=data.get("points_per_submission", 10),
+        points_mode=data.get("points_mode", "auto"),
+        config=data.get("config", {}),
+    )
+
+    session.add(q)
+    session.commit()
+    session.refresh(q)
+
+    return {
+        "id": q.id,
+        "name": q.name,
+        "description": q.description,
+    }
 
 
 
