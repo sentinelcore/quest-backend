@@ -12,7 +12,7 @@ app = FastAPI()
 # CORS setup for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://your-frontend.vercel.app", "*"],  # for now allow all
+    allow_origins=["http://localhost:5173", "https://PPP.vercel.app", "*"],  # for now allow all
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,30 +44,35 @@ def get_quests():
 
 @app.post("/quests")
 async def create_quest(request: Request):
-    session = Session()
-    data = await request.json()
+    try:
+        session = Session()
+        data = await request.json()
 
-    q = Quest(
-        name=data.get("name"),
-        description=data.get("description"),
-        start_time=data.get("start_time"),
-        end_time=data.get("end_time"),
-        is_active=data.get("is_active", True),
-        submissions_limit=data.get("submissions_limit", "1_per_user"),
-        points_per_submission=data.get("points_per_submission", 10),
-        points_mode=data.get("points_mode", "auto"),
-        config=data.get("config", {}),
-    )
+        q = Quest(
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            start_time=data.get("start_time"),
+            end_time=data.get("end_time"),
+            is_active=data.get("is_active", True),
+            submissions_limit=data.get("submissions_limit", "1_per_user"),
+            points_per_submission=data.get("points_per_submission", 0),
+            points_mode=data.get("points_mode", "auto"),
+            config=data.get("config", {}),
+        )
 
-    session.add(q)
-    session.commit()
-    session.refresh(q)
+        session.add(q)
+        session.commit()
+        session.refresh(q)
 
-    return {
-        "id": q.id,
-        "name": q.name,
-        "description": q.description,
-    }
+        return {
+            "id": q.id,
+            "name": q.name,
+            "description": q.description
+        }
+
+    except Exception as e:
+        print("❌ Backend error:", str(e))
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 
